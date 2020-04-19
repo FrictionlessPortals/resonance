@@ -10,25 +10,27 @@
 
 #![forbid(unsafe_code)]
 
-use futures::{FutureExt, StreamExt};
+use futures::FutureExt;
 use log::error;
 use std::error::Error;
 use warp::{ws::Ws, Filter};
 
+// Endpoint Routing
+mod route;
+
+// Async Result Type
+pub(crate) type ResultA<T> = Result<T, Box<dyn Error + Send + Sync>>;
+
 #[tokio::main]
-async fn main() -> Result<(), Box<dyn Error>> {
+async fn main() -> ResultA<()> {
     // Setup environment variable based logging.
     pretty_env_logger::init();
 
     // Websocket API connection route.
     let connection = warp::any().and(warp::ws()).map(|ws: Ws| {
         ws.on_upgrade(move |socket| {
-            let (tx, rx) = socket.split();
-            rx.forward(tx).map(|result| {
-                if let Err(e) = result {
-                    error!("websocket error: {:?}", e);
-                }
-            })
+            route::websocket_connection(socket)
+                .map(|error| error!("[!!] Websocket error: {:?}", error))
         })
     });
 
