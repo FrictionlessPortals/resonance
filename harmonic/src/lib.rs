@@ -24,5 +24,9 @@ pub mod types {
     pub type BufferTx = UnboundedSender<Result<Message, Error>>;
 }
 
+// Useful macros for generating endpoints.
 mod macros;
 pub use macros::*;
+
+// The collection of API endpoints.
+pub mod endpoints;
