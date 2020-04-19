@@ -5,3 +5,15 @@ authors = ["FrictionlessPortals <8077147+FrictionlessPortals@users.noreply.githu
 edition = "2018"
 
 [dependencies]
+log = "0.4"
+pretty_env_logger = "0.4"
+futures = "0.3"
+
+[dependencies.tokio]
+version = "0.2"
+features = ["macros"]
+
+[dependencies.warp]
+version = "0.2"
+default-features = false
+features = ["websocket"]
