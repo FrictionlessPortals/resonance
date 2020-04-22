@@ -30,3 +30,6 @@ pub use macros::*;
 
 // The collection of API endpoints.
 pub mod endpoints;
+
+// Session Management
+pub mod sessions;
