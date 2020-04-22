@@ -2,15 +2,16 @@
 
 use super::ResultA;
 use futures::{channel::mpsc, FutureExt, SinkExt, StreamExt};
-use harmonic::{endpoints::info::*, types::BufferTx, API_VERSION};
-use log::{debug, error};
+use harmonic::{endpoints::info::*, sessions::Session, types::BufferTx, API_VERSION};
+use log::{debug, error, info};
+use uuid::Uuid;
 use warp::{
     ws::{Message, WebSocket},
     Error,
 };
 
 /// Handle the generate websocket connections.
-pub async fn websocket_connection(socket: WebSocket) -> ResultA<()> {
+pub async fn websocket_connection(socket: WebSocket, sessions: Session<()>) -> ResultA<()> {
     debug!("[@] Got websocket connection.");
 
     // Split channels on socket.
@@ -19,9 +20,12 @@ pub async fn websocket_connection(socket: WebSocket) -> ResultA<()> {
     // Create a unbounded buffer.
     let (mut buf_tx, buf_rx) = mpsc::unbounded();
 
+    // Generate a new session object for this connection.
+    let session = sessions.new_session(());
+
     // Send connection handshake.
-    let api_information = HarmonicVersion::new("200 OK", API_VERSION);
-    api_information.send(&mut buf_tx).await?;
+    let handshake = HarmonicHandshake::new("200 OK", API_VERSION, session.clone());
+    handshake.send(&mut buf_tx).await?;
 
     // Send all incoming messages out through the websocket.
     tokio::task::spawn(
@@ -39,10 +43,36 @@ pub async fn websocket_connection(socket: WebSocket) -> ResultA<()> {
         route(x, &mut buf_tx).await?;
     }
 
-    Ok(())
+    Ok(disconnected(session, sessions))
+}
+
+/// Clean up the websocket connection after disconnection.
+pub fn disconnected(session: Uuid, sessions: Session<()>) {
+    // Remove the session from sessions as the end user has disconnected.
+    info!("[!] Session {:?} has become invalid, removing!", session);
+    sessions.remove_session(session.to_owned());
 }
 
 /// Parse the incoming request and route it.
 pub async fn route(message: Result<Message, Error>, buf_tx: &mut BufferTx) -> ResultA<()> {
-    Ok(buf_tx.send(message).await?)
+    // Check the incoming validity of the message.
+    match message {
+        Ok(x) => {
+            // Check if the message is binary.
+            if x.is_binary() {
+                // Message is in binary format.
+                Ok(())
+            } else if x.is_ping() {
+                // Message is a ping.
+                Ok(())
+            } else {
+                // Message is not a ping or binary.
+                Ok(())
+            }
+        }
+        Err(e) => {
+            // Respond with the formed error.
+            Ok(buf_tx.send(Ok(Message::text(e.to_string()))).await?)
+        }
+    }
 }
