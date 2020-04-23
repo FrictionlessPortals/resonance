@@ -1,16 +1,38 @@
-//! A collection of helper macros for ``harmonic``.
+//! A collection of helper macros and items for ``harmonic``.
+
+use serde::{Serialize, Deserialize};
+
+/// Main Endpoints
+#[derive(Serialize, Deserialize, Debug)]
+pub enum Endpoint {
+    /// An invalid endpoint.
+    Invalid,
+    /// Protocol information endpoint.
+    Information,
+
+    /// State broadcast endpoint.
+    Broadcast,
+}
+
+/// A macro to generate a request type for incoming data.
+#[macro_export]
+macro_rules! harmonic_request {
+    ($doc: expr, $request_name: ident, $( $x:ident > $t:ty ),*) => {
+        #[derive(Serialize, Deserialize, Debug)]
+        #[doc = $doc]
+        pub struct $request_name {
+            endpoint: $crate::Endpoint,
+            $(
+                $x: $t,
+            )*
+        }
+    };
+}
 
 /// A macro to generate a response type for routing.
 #[macro_export]
 macro_rules! harmonic_response {
     ($doc: expr, $response_name: ident, $( $x:ident > $t:ty ),*) => {
-        use crate::types::BufferTx;
-        use futures::SinkExt;
-        use log::debug;
-        use serde::{Deserialize, Serialize};
-        use std::error::Error;
-        use warp::ws::Message;
-
         #[derive(Serialize, Deserialize, Debug)]
         #[doc = $doc]
         pub struct $response_name<'a> {
